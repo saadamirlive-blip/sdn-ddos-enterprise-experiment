@@ -1,0 +1,7 @@
+ryu
+eventlet==0.30.2
+scikit-learn
+numpy
+pandas
+joblib
+matplotlib
