@@ -27,7 +27,7 @@ sudo apt-get install -y --no-install-recommends \
 # Install Python packages
 pip3 install --upgrade pip
 pip3 install eventlet==0.30.2
-pip3 install ryu scikit-learn numpy pandas joblib matplotlib
+pip3 install ryu scikit-learn numpy pandas joblib matplotlib python-docx
 
 # Start Open vSwitch service
 sudo service openvswitch-switch start || true
@@ -39,7 +39,6 @@ if [ -f "train_model.py" ]; then
 fi
 
 echo "========================================================="
-echo " Environment setup completed! You are ready to run:"
-echo " 1. Start controller: sudo ryu-manager enterprise_security_controller_v2.py"
-echo " 2. In 2nd terminal: sudo python3 run_experiment.py --attacker h13 --victim h11 --duration 300 --trial-dir trial_01"
+echo " Environment setup completed!"
+echo " Ready to run: ./run_pipeline.sh"
 echo "========================================================="

@@ -121,7 +121,7 @@ class EnterpriseTopo(Topo):
         h9 = self.addHost('h9', ip='10.0.0.9/24', mac='00:00:00:00:00:09')
         h10 = self.addHost('h10', ip='10.0.0.10/24', mac='00:00:00:00:00:10')
         
-        # Edge S3 Hosts (h11-h13) - Servers and attacker (10.0.0.11 - 10.0.0.13)
+        # Edge S3 Hosts (h11-h13) - Servers (10.0.0.11 - 10.0.0.13)
         h11 = self.addHost('h11', ip='10.0.0.11/24', mac='00:00:00:00:00:11')
         h12 = self.addHost('h12', ip='10.0.0.12/24', mac='00:00:00:00:00:12')
         h13 = self.addHost('h13', ip='10.0.0.13/24', mac='00:00:00:00:00:13')
@@ -140,7 +140,7 @@ class EnterpriseTopo(Topo):
             'h1': 'Database',
             'h2': 'Finance',
             'h3': 'HR',
-            'h4': 'EMP1',
+            'h4': 'ATTACKER',
             'h5': 'EMP2',
             'h6': 'APP',
             'h7': 'SALES',
@@ -149,7 +149,7 @@ class EnterpriseTopo(Topo):
             'h10': 'ADMIN',
             'h11': 'WEB',
             'h12': 'DEV',
-            'h13': 'ATTACKER',
+            'h13': 'EMP1',
             'hq1': 'QUARANTINE_COLLECTOR_S1',
             'hq2': 'QUARANTINE_COLLECTOR_S2',
             'hq3': 'QUARANTINE_COLLECTOR_S3'
@@ -264,10 +264,10 @@ def run_enterprise_simulation():
     print("     h11 iperf -s &          # Start iperf server on WEB")
     print("     h1 iperf -c 10.0.0.11   # Generate client traffic")
     print("  ")
-    print("  3. Launch Attacks (from h13 - Attacker):")
-    print("     h13 hping3 -S --flood -p 80 10.0.0.11   # SYN Flood")
-    print("     h13 hping3 --udp --flood -p 53 10.0.0.11 # UDP Flood")
-    print("     h13 ping -f 10.0.0.11                   # ICMP Flood")
+    print("  3. Launch Attacks (from h4 - Attacker):")
+    print("     h4 hping3 -S --flood -p 80 10.0.0.11   # SYN Flood")
+    print("     h4 hping3 --udp --flood -p 53 10.0.0.11 # UDP Flood")
+    print("     h4 ping -f 10.0.0.11                   # ICMP Flood")
     print("  ")
     print("  4. Monitor Flow Rules:")
     print("     sh ovs-ofctl -O OpenFlow13 dump-flows s1")

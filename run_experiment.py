@@ -18,7 +18,7 @@ running in a separate terminal BEFORE you start this script:
     ryu-manager enterprise_security_controller_v2.py
 
 Usage:
-    sudo python3 run_experiment.py --attacker h13 --victim h11 --duration 300 --trial-dir trial_01
+    sudo python3 run_experiment.py --attacker h4 --victim h11 --duration 300 --trial-dir trial_01
 """
 
 import argparse
@@ -63,7 +63,7 @@ def start_background_traffic(net, legitimate_hosts, victim_name, stop_event):
     return t
 
 
-def run_trial(attacker_name, victim_name, duration, trial_dir):
+def run_trial(attacker_name, victim_name, duration, trial_dir, controller_logs_dir='logs'):
     os.makedirs(trial_dir, exist_ok=True)
     setLogLevel('info')
 
@@ -148,25 +148,65 @@ def run_trial(attacker_name, victim_name, duration, trial_dir):
     stop_bg.set()
     print("\nTrial complete. Stopping network...")
     net.stop()
-    print(f"Trial artifacts in: {trial_dir}/")
+
+    # ---- Auto-locate and copy the controller's decision log into this trial folder ---- #
+    import glob
+    import shutil
+    decisions_copy_path = None
+    candidates = sorted(glob.glob(os.path.join(controller_logs_dir, 'decisions_*.jsonl')),
+                         key=os.path.getmtime, reverse=True)
+    if candidates:
+        newest = candidates[0]
+        decisions_copy_path = os.path.join(trial_dir, 'decisions.jsonl')
+        shutil.copy2(newest, decisions_copy_path)
+        print(f"Copied controller log: {newest} -> {decisions_copy_path}")
+    else:
+        print(f"WARNING: no decisions_*.jsonl found in {controller_logs_dir}/ -- "
+              f"is the controller running with --controller-logs-dir pointing at the "
+              f"right folder? You will need to copy it into {trial_dir}/decisions.jsonl "
+              f"manually before running the report generator.")
+
+    print(f"\nTrial artifacts in: {trial_dir}/")
     print(f"  - ground_truth.json")
     print(f"  - {os.path.basename(avail_log)}")
-    print(f"Remember: the controller's decisions_*.jsonl is in the controller's own logs/ folder.")
+    print(f"  - decisions.jsonl" if decisions_copy_path else "  - decisions.jsonl (MISSING -- see warning above)")
+
+    # ---- Auto-compute real metrics for this trial ---- #
+    if decisions_copy_path:
+        try:
+            from metrics_from_logs import load_jsonl, compute_detection_metrics, compute_availability
+            decisions = load_jsonl(decisions_copy_path)
+            avail_records = load_jsonl(avail_log) if os.path.exists(avail_log) else []
+            det = compute_detection_metrics(decisions, ground_truth)
+            avail = compute_availability(avail_records)
+            summary = {'detection_and_containment': det, 'availability': avail}
+            summary_path = os.path.join(trial_dir, 'real_metrics_summary.json')
+            with open(summary_path, 'w') as f:
+                json.dump(summary, f, indent=2)
+            print(f"  - real_metrics_summary.json (auto-computed)")
+            print(f"\nCR={det['containment_rate_percent']}  "
+                  f"FPR={det['false_positive_rate_percent']}  "
+                  f"NA={avail['network_availability_percent'] if avail else None}")
+        except Exception as e:
+            print(f"WARNING: could not auto-compute metrics ({e}). "
+                  f"Run metrics_from_logs.py manually on this trial's files instead.")
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--attacker', default='h13', help='Attacker host name (must match topology)')
+    ap.add_argument('--attacker', default='h4', help='Attacker host name (must match topology)')
     ap.add_argument('--victim', default='h11', help='Victim host name')
     ap.add_argument('--duration', type=int, default=300, help='Total trial duration in seconds')
     ap.add_argument('--trial-dir', default='trial_01', help='Output folder for this trial')
+    ap.add_argument('--controller-logs-dir', default='logs',
+                     help='Folder where the controller writes decisions_*.jsonl (relative to where ryu-manager was launched)')
     args = ap.parse_args()
 
     if os.geteuid() != 0:
         print("This script must be run with sudo (Mininet requires root).")
         sys.exit(1)
 
-    run_trial(args.attacker, args.victim, args.duration, args.trial_dir)
+    run_trial(args.attacker, args.victim, args.duration, args.trial_dir, args.controller_logs_dir)
 
 
 if __name__ == '__main__':

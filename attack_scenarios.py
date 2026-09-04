@@ -20,7 +20,7 @@ class AttackScenarios:
         
         if net:
             try:
-                self.attacker_host = net.get('h13')  # Attacker from topology
+                self.attacker_host = net.get('h4')  # Attacker from topology
                 print("✅ Attacker host ready")
             except:
                 print("⚠️ Attacker host not found - use set_attacker()")
@@ -169,9 +169,9 @@ def example_usage():
     # Connect to running Mininet
     net = Mininet(controller=lambda name: RemoteController(name, ip='127.0.0.1', port=6633))
     
-    # Get attacker host (assumes h13 exists)
+    # Get attacker host (assumes h4 exists)
     try:
-        attacker = net.get('h13')
+        attacker = net.get('h4')
         
         # Create attack manager
         attacks = AttackScenarios(net)
@@ -199,7 +199,7 @@ def example_usage():
         
     except Exception as e:
         print(f"Error: {e}")
-        print("Make sure Mininet is running with h13 as attacker")
+        print("Make sure Mininet is running with h4 as attacker")
 
 if __name__ == '__main__':
     example_usage()

@@ -1,51 +1,62 @@
-# SDN Enterprise Security Controller & Automated Evaluation
+# SDN Enterprise DDoS Security Experiment
 
-Automated SDN framework for DDoS attack detection, mitigation, and real-time network availability evaluation using Ryu controller, Mininet, and Machine Learning.
+Automated SDN Security Experimentation Framework evaluating Machine Learning-based DDoS detection, mitigation, and host containment in an enterprise OpenFlow/Mininet network.
 
-## 🚀 Quick Start in GitHub Codespaces
-
-1. Click **`< > Code`** > **`Codespaces`** > **`Create codespace on main`**.
-2. The environment will automatically install Mininet, Open vSwitch, Ryu, and Python dependencies via `.devcontainer`.
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/saadamirlive-blip/sdn-ddos-enterprise-experiment)
 
 ---
 
-## 📋 Running Experiments
+## 🚀 One-Click Run in GitHub Codespaces
 
-### Step 1: Train the Machine Learning Model
-```bash
-python3 train_model.py
-```
-*Generates `model.pkl` and `scaler.pkl`.*
+1. Click **[Open in GitHub Codespaces](https://codespaces.new/saadamirlive-blip/sdn-ddos-enterprise-experiment)**.
+2. The environment automatically builds and installs Mininet, Open vSwitch, Ryu SDN controller, and all dependencies.
+3. Open a terminal in the Codespace and run:
 
-### Step 2: Start Ryu Security Controller (Terminal 1)
 ```bash
-sudo ryu-manager enterprise_security_controller_v2.py
+chmod +x run_pipeline.sh
+./run_pipeline.sh
 ```
-*Keep this terminal running.*
 
-### Step 3: Run Automated Experiment Trial (Terminal 2)
-```bash
-sudo python3 run_experiment.py --attacker h13 --victim h11 --duration 300 --trial-dir trial_01
-```
-*Runs the full topology, background legitimate traffic, 6 attack scenarios, availability probing, and telemetry logging.*
-
-### Step 4: Compute Experiment Metrics
-```bash
-python3 metrics_from_logs.py \
-    --decisions logs/decisions_<TIMESTAMP>.jsonl \
-    --ground-truth trial_01/ground_truth.json \
-    --availability trial_01/availability_<TIMESTAMP>.jsonl \
-    --out trial_01/real_metrics_summary.json
-```
+> **Note**: To run all 10 trials with full 300-second duration:
+> ```bash
+> ./run_pipeline.sh 10 300
+> ```
 
 ---
 
-## 📁 Repository Structure
-- `enterprise_security_controller_v2.py`: Ryu OpenFlow controller with ML and per-switch quarantine fallback.
-- `topology_enterprise.py`: Enterprise network topology with quarantine collector hosts (`hq1`, `hq2`, `hq3`).
-- `run_experiment.py`: Orchestrator for automated end-to-end trials.
-- `attack_scenarios.py`: Multi-vector DDoS attack generators (SYN, UDP, ICMP, HTTP flood, Slowloris, Port Scan).
-- `availability_prober.py`: Probing engine measuring legitimate host availability.
-- `metrics_from_logs.py`: Evaluator computing containment rate, response time, and false positive rates.
-- `train_model.py`: Random Forest classifier training pipeline.
-- `FINAL_RUN_GUIDE.md`: Detailed testing and trial guide.
+## 📋 Manual Pipeline Execution (Step-by-Step)
+
+Refer to **[MASTER_PIPELINE.md](MASTER_PIPELINE.md)** for detailed phase-by-phase instructions:
+
+1. **Train Model:**
+   ```bash
+   python3 train_model.py
+   ```
+2. **Start Security Controller (Terminal 1):**
+   ```bash
+   sudo ryu-manager enterprise_security_controller_v2.py
+   ```
+3. **Run Trial (Terminal 2):**
+   ```bash
+   sudo python3 run_experiment.py --attacker h4 --victim h11 --duration 300 --trial-dir trial_01
+   ```
+4. **Compute Metrics:**
+   ```bash
+   python3 metrics_from_logs.py --decisions logs/decisions_*.jsonl --ground-truth trial_01/ground_truth.json --availability trial_01/availability_*.jsonl --out trial_01/real_metrics_summary.json
+   ```
+5. **Generate Final Results Report (.docx):**
+   ```bash
+   python3 generate_results_report.py --model-metrics model_metrics.json --trials trial_01 --decisions-dir logs --out Results_Report.docx
+   ```
+
+---
+
+## 📂 Core Files
+- `topology_enterprise.py`: 4 OpenFlow switches, 13 hosts, 3 quarantine collectors.
+- `enterprise_security_controller_v2.py`: Ryu ML detection and port containment controller.
+- `train_model.py`: Trains Random Forest DDoS classifier and exports metrics.
+- `attack_scenarios.py`: Multi-vector DDoS generator (SYN, UDP, ICMP, Slowloris, HTTP flood).
+- `availability_prober.py`: Real-time network availability matrix prober.
+- `run_experiment.py`: Automated trial orchestrator with background traffic.
+- `metrics_from_logs.py`: Computes CR, FPR, FCR, mitigation response time, and availability.
+- `generate_results_report.py`: Generates publication-ready Word report with charts.

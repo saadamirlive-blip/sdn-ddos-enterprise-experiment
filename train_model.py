@@ -5,11 +5,13 @@ Trains Random Forest classifier for attack detection
 
 import pandas as pd
 import numpy as np
+import json
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score
 import pickle
+import json
 import joblib
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -130,17 +132,83 @@ class DDOSDetectionModel:
         print("\nFeature Importance:")
         for name, imp in zip(self.feature_names, importances):
             print(f"  {name}: {imp:.3f}")
-        
+
         # Save model and scaler
         model_path = os.path.join(self.base_dir, 'model.pkl')
         scaler_path = os.path.join(self.base_dir, 'scaler.pkl')
         with open(model_path, 'wb') as f:
             pickle.dump(self.model, f)
         joblib.dump(self.scaler, scaler_path)
-        
+
         print(f"\n✅ Model saved as '{model_path}'")
         print(f"✅ Scaler saved as '{scaler_path}'")
-        
+
+        # ---- Export real metrics to JSON for the report generator ---- #
+        # (Nothing here is hardcoded -- every value below is read directly
+        # from the sklearn objects computed above from your actual run.)
+        cm_list = cm.tolist()  # [[TN, FP], [FN, TP]]
+        tn, fp, fn, tp = cm_list[0][0], cm_list[0][1], cm_list[1][0], cm_list[1][1]
+        total = tn + fp + fn + tp
+        report_dict = classification_report(y_test, y_pred, target_names=['Normal', 'Attack'], output_dict=True)
+
+        metrics_export = {
+            "n_train_samples": int(len(X_train)),
+            "n_test_samples": int(len(X_test)),
+            "accuracy_percent": round(100 * (tn + tp) / total, 4) if total else None,
+            "precision_percent": round(100 * tp / (tp + fp), 4) if (tp + fp) else None,
+            "recall_percent": round(100 * tp / (tp + fn), 4) if (tp + fn) else None,
+            "roc_auc": round(float(roc_auc), 4),
+            "confusion_matrix": {
+                "true_normal": tn, "false_positive": fp,
+                "false_negative": fn, "true_attack": tp,
+            },
+            "cross_validation": {
+                "scores": [round(float(s), 4) for s in cv_scores],
+                "mean": round(float(cv_scores.mean()), 4),
+                "std": round(float(cv_scores.std()), 4),
+            },
+            "feature_importance": {
+                name: round(float(imp), 4)
+                for name, imp in zip(self.feature_names, importances)
+            },
+            "hyperparameters": {
+                "n_estimators": self.model.n_estimators,
+                "max_depth": self.model.max_depth,
+                "min_samples_split": self.model.min_samples_split,
+                "min_samples_leaf": self.model.min_samples_leaf,
+                "random_state": self.model.random_state,
+                "class_weight": str(self.model.class_weight),
+            },
+        }
+        metrics_path = os.path.join(self.base_dir, 'model_metrics.json')
+        with open(metrics_path, 'w') as f:
+            json.dump(metrics_export, f, indent=2)
+        print(f"✅ Real metrics exported to '{metrics_path}' (used by generate_results_report.py)")
+
+        # Save real metrics to JSON for the report generator -- every value
+        # here comes directly from the sklearn evaluation above, nothing
+        # hardcoded.
+        tn, fp, fn, tp = cm.ravel()
+        model_metrics = {
+            'confusion_matrix': {
+                'true_negative': int(tn), 'false_positive': int(fp),
+                'false_negative': int(fn), 'true_positive': int(tp),
+                'n_test_samples': int(len(y_test)),
+            },
+            'accuracy_percent': round(100.0 * (tn + tp) / len(y_test), 2),
+            'precision_percent': round(100.0 * tp / (tp + fp), 2) if (tp + fp) else None,
+            'recall_percent': round(100.0 * tp / (tp + fn), 2) if (tp + fn) else None,
+            'roc_auc': round(float(roc_auc), 4),
+            'cv_scores_mean': round(float(cv_scores.mean()), 4),
+            'cv_scores_std': round(float(cv_scores.std()), 4),
+            'feature_importance': {name: round(float(imp), 4)
+                                    for name, imp in zip(self.feature_names, importances)},
+        }
+        metrics_path = os.path.join(self.base_dir, 'model_metrics.json')
+        with open(metrics_path, 'w') as f:
+            json.dump(model_metrics, f, indent=2)
+        print(f"✅ Model metrics saved as '{metrics_path}' (used by generate_results_report.py)")
+
         return self.model, self.scaler, X_test, y_test, y_pred, y_pred_proba
 
     def plot_results(self, X_test, y_test, y_pred, y_pred_proba):
