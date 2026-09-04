@@ -20,6 +20,13 @@ fi
 sudo mn -c 2>/dev/null || true
 sudo service openvswitch-switch start 2>/dev/null || true
 
+# Recover existing containers where the setup hook did not install dependencies.
+if ! python3 run_ryu_manager.py --help >/dev/null 2>&1; then
+    echo "[Setup] Installing Python dependencies from requirements.txt..."
+    python3 -m pip install 'setuptools<58'
+    python3 -m pip install --no-build-isolation -r requirements.txt
+fi
+
 # Phase 1: Train model if not already trained
 if [ ! -f "model.pkl" ] || [ ! -f "scaler.pkl" ] || [ ! -f "model_metrics.json" ]; then
     echo "[Phase 1] Training ML Model..."
@@ -30,12 +37,12 @@ fi
 
 # Phase 2: Start Ryu controller in background if not running
 mkdir -p logs
-if ! pgrep -f "ryu-manager" > /dev/null; then
+if ! pgrep -f "run_ryu_manager.py" > /dev/null; then
     echo "[Phase 2] Starting Ryu Security Controller in background..."
-    sudo ryu-manager enterprise_security_controller_v2.py > logs/controller.log 2>&1 &
+    python3 run_ryu_manager.py enterprise_security_controller_v2.py > logs/controller.log 2>&1 &
     sleep 5
-    if pgrep -f "ryu-manager" > /dev/null; then
-        echo "   -> Ryu Controller running (PID: $(pgrep -f ryu-manager)). Logs at logs/controller.log"
+    if pgrep -f "run_ryu_manager.py" > /dev/null; then
+        echo "   -> Ryu Controller running (PID: $(pgrep -f run_ryu_manager.py)). Logs at logs/controller.log"
     else
         echo "   -> Error starting Ryu controller. Check logs/controller.log"
         cat logs/controller.log
@@ -55,7 +62,10 @@ for i in $(seq 1 $TRIALS); do
     echo "---------------------------------------------------------"
     echo "Starting Trial $i -> $TRIAL_DIR"
     echo "---------------------------------------------------------"
-    sudo python3 run_experiment.py --attacker h4 --victim h11 --duration $DURATION --trial-dir $TRIAL_DIR
+    if ! sudo python3 run_experiment.py --attacker h4 --victim h11 --duration $DURATION --trial-dir $TRIAL_DIR; then
+        echo "WARNING: $TRIAL_DIR failed after network cleanup; continuing with remaining trials."
+        continue
+    fi
 
     # Find latest decisions and availability files
     DECISIONS_FILE=$(ls -t logs/decisions_*.jsonl 2>/dev/null | head -n 1)

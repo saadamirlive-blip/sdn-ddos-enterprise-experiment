@@ -31,7 +31,8 @@ sudo apt-get install -y --no-install-recommends \
 # Install Python packages
 sudo pip3 install --upgrade pip 2>/dev/null || true
 sudo pip3 install eventlet==0.30.2
-sudo pip3 install ryu python-docx joblib
+sudo pip3 install 'setuptools<58'
+sudo pip3 install --no-build-isolation -r requirements.txt
 
 # Start Open vSwitch service
 sudo service openvswitch-switch start 2>/dev/null || true

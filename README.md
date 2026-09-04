@@ -34,7 +34,7 @@ Refer to **[MASTER_PIPELINE.md](MASTER_PIPELINE.md)** for detailed phase-by-phas
    ```
 2. **Start Security Controller (Terminal 1):**
    ```bash
-   sudo ryu-manager enterprise_security_controller_v2.py
+   ryu-manager enterprise_security_controller_v2.py
    ```
 3. **Run Trial (Terminal 2):**
    ```bash

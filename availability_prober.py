@@ -21,7 +21,7 @@ import json
 import os
 
 
-def probe_all_pairs(net, duration=300, interval=3, log_path=None):
+def probe_all_pairs(net, duration=300, interval=3, log_path=None, stop_event=None):
     if log_path is None:
         log_path = f'availability_{time.strftime("%Y%m%d_%H%M%S")}.jsonl'
 
@@ -34,10 +34,12 @@ def probe_all_pairs(net, duration=300, interval=3, log_path=None):
 
     start = time.time()
     with open(log_path, 'a', buffering=1) as f:
-        while time.time() - start < duration:
+        while time.time() - start < duration and not (stop_event and stop_event.is_set()):
             round_start = time.time()
             for src in hosts:
                 for dst in hosts:
+                    if stop_event and stop_event.is_set():
+                        break
                     if src == dst:
                         continue
                     # -c 1 -W 1: one packet, 1s timeout -- fast enough for
@@ -52,7 +54,10 @@ def probe_all_pairs(net, duration=300, interval=3, log_path=None):
                     }) + '\n')
             elapsed_round = time.time() - round_start
             sleep_for = max(0, interval - elapsed_round)
-            time.sleep(sleep_for)
+            if stop_event:
+                stop_event.wait(sleep_for)
+            else:
+                time.sleep(sleep_for)
 
     print(f"Done. Availability log: {log_path}")
     return log_path

@@ -105,12 +105,16 @@ def run_trial(attacker_name, victim_name, duration, trial_dir, controller_logs_d
 
     # ---- Start background legitimate traffic ---- #
     stop_bg = threading.Event()
-    start_background_traffic(net, legitimate_hosts, victim_name, stop_bg)
+    background_thread = start_background_traffic(net, legitimate_hosts, victim_name, stop_bg)
 
     # ---- Start availability prober in a background thread ---- #
     avail_log = os.path.join(trial_dir, f'availability_{time.strftime("%Y%m%d_%H%M%S")}.jsonl')
+    stop_availability = threading.Event()
     avail_thread = threading.Thread(
-        target=probe_all_pairs, args=(net,), kwargs={'duration': duration, 'interval': 5, 'log_path': avail_log},
+        target=probe_all_pairs, args=(net,), kwargs={
+            'duration': duration, 'interval': 5, 'log_path': avail_log,
+            'stop_event': stop_availability,
+        },
         daemon=True,
     )
     avail_thread.start()
@@ -151,6 +155,9 @@ def run_trial(attacker_name, victim_name, duration, trial_dir, controller_logs_d
         time.sleep(remaining)
 
     stop_bg.set()
+    background_thread.join()
+    stop_availability.set()
+    avail_thread.join()
     print("\nTrial complete. Stopping network...")
     net.stop()
 

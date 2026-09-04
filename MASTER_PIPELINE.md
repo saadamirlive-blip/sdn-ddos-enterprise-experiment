@@ -68,7 +68,7 @@ ls model.pkl scaler.pkl model_metrics.json
 ## Phase 2 -- Start the controller (Terminal 1, leave running for ALL 10 trials)
 
 ```bash
-sudo ryu-manager enterprise_security_controller_v2.py
+ryu-manager enterprise_security_controller_v2.py
 ```
 
 **Confirm you see:** `ML loaded: True` and a line like `Decision log: .../logs/decisions_<timestamp>.jsonl`.
@@ -140,7 +140,7 @@ pip3 install ryu scikit-learn numpy pandas joblib matplotlib python-docx
 python3 train_model.py
 
 # Phase 2 (once, separate terminal, leave running)
-sudo ryu-manager enterprise_security_controller_v2.py
+ryu-manager enterprise_security_controller_v2.py
 
 # Phase 3 + 4, x10 (same terminal as Phase 3, one trial at a time)
 sudo python3 run_experiment.py --attacker h4 --victim h11 --duration 300 --trial-dir trial_01
