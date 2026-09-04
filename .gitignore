@@ -1,0 +1,23 @@
+# Runtime and generated experiment artifacts
+__pycache__/
+*.py[cod]
+logs/
+trial_*/
+dataset/
+report_figures/
+model.pkl
+scaler.pkl
+model_metrics.json
+model_performance.png
+Results_Report.docx
+
+# Download bundles and temporary exports
+*.zip
+*.tar.gz
+sdn-ddos-enterprise-experiment-clean/
+
+# Local editor and environment files
+.venv/
+venv/
+.pytest_cache/
+*.swp
