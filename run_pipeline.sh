@@ -20,6 +20,12 @@ fi
 sudo mn -c 2>/dev/null || true
 sudo service openvswitch-switch start 2>/dev/null || true
 
+if ! command -v ping >/dev/null 2>&1; then
+    echo "[Setup] Installing ping for Mininet availability probes..."
+    sudo apt-get update
+    sudo apt-get install -y --no-install-recommends iputils-ping
+fi
+
 # Recover existing containers where the setup hook did not install dependencies.
 if ! python3 run_ryu_manager.py --help >/dev/null 2>&1; then
     echo "[Setup] Installing Python dependencies from requirements.txt..."
@@ -39,9 +45,18 @@ fi
 mkdir -p logs
 if ! pgrep -f "run_ryu_manager.py" > /dev/null; then
     echo "[Phase 2] Starting Ryu Security Controller in background..."
-    python3 run_ryu_manager.py enterprise_security_controller_v2.py > logs/controller.log 2>&1 &
-    sleep 5
-    if pgrep -f "run_ryu_manager.py" > /dev/null; then
+    nohup python3 run_ryu_manager.py enterprise_security_controller_v2.py \
+        > logs/controller.log 2>&1 < /dev/null &
+    controller_ready=0
+    for _ in $(seq 1 20); do
+        if pgrep -f "run_ryu_manager.py" > /dev/null && \
+           ss -ltn 2>/dev/null | awk '$4 ~ /:(6653|6633)$/ {found=1} END {exit !found}'; then
+            controller_ready=1
+            break
+        fi
+        sleep 1
+    done
+    if [ "$controller_ready" -eq 1 ]; then
         echo "   -> Ryu Controller running (PID: $(pgrep -f run_ryu_manager.py)). Logs at logs/controller.log"
     else
         echo "   -> Error starting Ryu controller. Check logs/controller.log"
@@ -67,11 +82,11 @@ for i in $(seq 1 $TRIALS); do
         continue
     fi
 
-    # Find latest decisions and availability files
-    DECISIONS_FILE=$(ls -t logs/decisions_*.jsonl 2>/dev/null | head -n 1)
+    # Use the decision slice copied into this trial directory.
+    DECISIONS_FILE="$TRIAL_DIR/decisions.jsonl"
     AVAILABILITY_FILE=$(ls -t $TRIAL_DIR/availability_*.jsonl 2>/dev/null | head -n 1)
 
-    if [ -n "$DECISIONS_FILE" ] && [ -n "$AVAILABILITY_FILE" ]; then
+    if [ -s "$DECISIONS_FILE" ] && [ -n "$AVAILABILITY_FILE" ]; then
         echo "Computing real metrics for $TRIAL_DIR..."
         python3 metrics_from_logs.py \
             --decisions "$DECISIONS_FILE" \
@@ -81,14 +96,31 @@ for i in $(seq 1 $TRIALS); do
     fi
 done
 
+# Package only complete, current trial artifacts for reproducibility.
+TRIAL_DIRS=""
+for i in $(seq 1 "$TRIALS"); do
+    trial_dir=$(printf "trial_%02d" "$i")
+    if [ -s "$trial_dir/decisions.jsonl" ] && \
+       [ -s "$trial_dir/ground_truth.json" ] && \
+       [ -s "$trial_dir/real_metrics_summary.json" ]; then
+        TRIAL_DIRS="$TRIAL_DIRS $trial_dir"
+    fi
+done
+if [ -n "$TRIAL_DIRS" ]; then
+    python3 build_dataset.py --trials $TRIAL_DIRS --output dataset \
+        --baselines metrics/baselines_reference.json \
+        --reference-metrics metrics/metrics_summary.json
+fi
+
 # Phase 5: Generate report if trials completed
 echo "[Phase 5] Generating Results Report..."
-TRIAL_DIRS=$(ls -d trial_* 2>/dev/null | tr '\n' ' ')
 if [ -n "$TRIAL_DIRS" ]; then
     python3 generate_results_report.py \
         --model-metrics model_metrics.json \
         --trials $TRIAL_DIRS \
         --decisions-dir logs \
+        --baselines metrics/baselines_reference.json \
+        --reference-metrics metrics/metrics_summary.json \
         --out Results_Report.docx || true
     echo "========================================================="
     echo " Pipeline Completed Successfully!"

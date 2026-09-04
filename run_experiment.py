@@ -24,15 +24,25 @@ Usage:
 import argparse
 import json
 import os
+
 import sys
-import time
 import threading
+import time
+
+
+def run_host_command(host, command):
+    """Serialize commands because Mininet Host shells cannot be polled concurrently."""
+    lock = getattr(host, '_experiment_cmd_lock', None)
+    if lock is None:
+        lock = threading.Lock()
+        host._experiment_cmd_lock = lock
+    with lock:
+        return host.cmd(command)
 
 from mininet.net import Mininet
 from mininet.log import setLogLevel
 import subprocess
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from topology_enterprise import (EnterpriseTopo, NonBlockingOVSSwitch,
                                   clean_leftover_network, get_controller_port,
                                   is_ovs_kernel_loaded)
@@ -45,8 +55,8 @@ def start_background_traffic(net, legitimate_hosts, victim_name, stop_event):
     the paper's Section IV-C description (HTTP/HTTPS/SQL/file-transfer-like
     background load). Runs until stop_event is set."""
     victim = net.get(victim_name)
-    victim.cmd('iperf3 -s -D')  # background iperf3 server on the victim
-    time.sleep(1)
+    processes = []
+    processes.append(victim.popen('iperf3 -s', shell=True))
 
     def loop():
         while not stop_event.is_set():
@@ -54,23 +64,32 @@ def start_background_traffic(net, legitimate_hosts, victim_name, stop_event):
                 if stop_event.is_set():
                     break
                 h = net.get(hname)
-                # Short client burst, then pause -- avoids saturating the
-                # link and better resembles bursty enterprise traffic than
-                # one continuous max-throughput stream.
-                h.cmd(f'timeout 3 iperf3 -c {victim.IP()} -t 2 > /dev/null 2>&1 &')
-                time.sleep(2)
+                # Use a child process instead of Host.cmd so availability
+                # probes never compete with a polling operation on this host.
+                processes.append(h.popen(
+                    f'timeout 3 iperf3 -u -b 5K -c {victim.IP()} -t 2', shell=True,
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                ))
+                time.sleep(4)
     t = threading.Thread(target=loop, daemon=True)
     t.start()
+    t.processes = processes
     return t
 
 
 def run_trial(attacker_name, victim_name, duration, trial_dir, controller_logs_dir='logs'):
     os.makedirs(trial_dir, exist_ok=True)
+    trial_start = time.time()
     setLogLevel('info')
 
     print("Cleaning leftover interfaces...")
     clean_leftover_network()
     target_port = get_controller_port()
+    if target_port is None:
+        raise RuntimeError(
+            "No Ryu OpenFlow listener found on ports 6653 or 6633. "
+            "Start enterprise_security_controller_v2.py before running a trial."
+        )
     NonBlockingOVSSwitch.target_controller_port = target_port
     print(f"Controller detected on port {target_port}. If this is wrong, "
           f"start enterprise_security_controller_v2.py FIRST.")
@@ -105,7 +124,9 @@ def run_trial(attacker_name, victim_name, duration, trial_dir, controller_logs_d
 
     # ---- Start background legitimate traffic ---- #
     stop_bg = threading.Event()
-    background_thread = start_background_traffic(net, legitimate_hosts, victim_name, stop_bg)
+    background_thread = start_background_traffic(
+        net, legitimate_hosts[:1], victim_name, stop_bg
+    )
 
     # ---- Start availability prober in a background thread ---- #
     avail_log = os.path.join(trial_dir, f'availability_{time.strftime("%Y%m%d_%H%M%S")}.jsonl')
@@ -114,6 +135,7 @@ def run_trial(attacker_name, victim_name, duration, trial_dir, controller_logs_d
         target=probe_all_pairs, args=(net,), kwargs={
             'duration': duration, 'interval': 5, 'log_path': avail_log,
             'stop_event': stop_availability,
+            'exclude_hosts': {attacker_name},
         },
         daemon=True,
     )
@@ -136,12 +158,13 @@ def run_trial(attacker_name, victim_name, duration, trial_dir, controller_logs_d
         time.sleep(5)  # cool-down between attacks
 
     victim_ip = victim.IP()
-    run_and_record(attacks.syn_flood_attack, 'SYN_FLOOD', victim_ip, duration=25, intensity='high')
-    run_and_record(attacks.udp_flood_attack, 'UDP_FLOOD', victim_ip, duration=25, intensity='high')
-    run_and_record(attacks.icmp_flood_attack, 'ICMP_FLOOD', victim_ip, duration=25)
-    run_and_record(attacks.mixed_ddos_attack, 'MIXED_DDOS', victim_ip, duration=25)
-    run_and_record(attacks.slowloris_attack, 'SLOWLORIS', victim_ip, duration=25)
-    run_and_record(attacks.http_flood_attack, 'HTTP_FLOOD', victim_ip, duration=25)
+    attack_duration = max(1, min(25, (duration - 5 * 5) // 6))
+    run_and_record(attacks.syn_flood_attack, 'SYN_FLOOD', victim_ip, duration=attack_duration, intensity='high')
+    run_and_record(attacks.udp_flood_attack, 'UDP_FLOOD', victim_ip, duration=attack_duration, intensity='high')
+    run_and_record(attacks.icmp_flood_attack, 'ICMP_FLOOD', victim_ip, duration=attack_duration)
+    run_and_record(attacks.mixed_ddos_attack, 'MIXED_DDOS', victim_ip, duration=attack_duration)
+    run_and_record(attacks.slowloris_attack, 'SLOWLORIS', victim_ip, duration=attack_duration)
+    run_and_record(attacks.http_flood_attack, 'HTTP_FLOOD', victim_ip, duration=attack_duration)
 
     gt_path = os.path.join(trial_dir, 'ground_truth.json')
     with open(gt_path, 'w') as f:
@@ -156,12 +179,15 @@ def run_trial(attacker_name, victim_name, duration, trial_dir, controller_logs_d
 
     stop_bg.set()
     background_thread.join()
+    for process in getattr(background_thread, 'processes', []):
+        if process.poll() is None:
+            process.terminate()
     stop_availability.set()
     avail_thread.join()
     print("\nTrial complete. Stopping network...")
     net.stop()
 
-    # ---- Auto-locate and copy the controller's decision log into this trial folder ---- #
+    # ---- Copy only this trial's controller decisions into its artifact folder ---- #
     import glob
     import shutil
     decisions_copy_path = None
@@ -170,8 +196,18 @@ def run_trial(attacker_name, victim_name, duration, trial_dir, controller_logs_d
     if candidates:
         newest = candidates[0]
         decisions_copy_path = os.path.join(trial_dir, 'decisions.jsonl')
-        shutil.copy2(newest, decisions_copy_path)
-        print(f"Copied controller log: {newest} -> {decisions_copy_path}")
+        trial_end = time.time()
+        with open(newest) as source, open(decisions_copy_path, 'w') as target:
+            copied = 0
+            for line in source:
+                if not line.strip():
+                    continue
+                record = json.loads(line)
+                wall_clock = record.get('wall_clock', record.get('t_detect_start', 0))
+                if trial_start <= wall_clock <= trial_end:
+                    target.write(json.dumps(record) + '\n')
+                    copied += 1
+        print(f"Copied {copied} trial decisions: {newest} -> {decisions_copy_path}")
     else:
         print(f"WARNING: no decisions_*.jsonl found in {controller_logs_dir}/ -- "
               f"is the controller running with --controller-logs-dir pointing at the "

@@ -1,0 +1,60 @@
+{
+  "source_files": {
+    "decisions": "trial_02/decisions.jsonl",
+    "ground_truth": "trial_02/ground_truth.json",
+    "availability": "trial_02/availability_20260904_185711.jsonl"
+  },
+  "n_total_decisions": 16791,
+  "detection_and_containment": {
+    "true_positives": 2007,
+    "false_negatives": 194,
+    "false_positives": 409,
+    "true_negatives": 8078,
+    "containment_rate_percent": 91.18582462517037,
+    "false_positive_rate_percent": 4.819135147873218,
+    "false_containment_rate_percent": 5.545010845986985,
+    "n_containment_actions": 7376,
+    "response_time_seconds": {
+      "n_samples": 6,
+      "mean": 0.044336835543314614,
+      "min": 0.0050506591796875,
+      "max": 0.17627954483032227
+    },
+    "pipeline_latency_seconds": {
+      "n_samples": 2007,
+      "mean": 0.04699727891390752
+    },
+    "per_attack_type": {
+      "SYN_FLOOD": {
+        "total_detections_in_window": 400,
+        "unique_contained_events": 286
+      },
+      "UDP_FLOOD": {
+        "total_detections_in_window": 383,
+        "unique_contained_events": 383
+      },
+      "ICMP_FLOOD": {
+        "total_detections_in_window": 555,
+        "unique_contained_events": 553
+      },
+      "MIXED_DDOS": {
+        "total_detections_in_window": 286,
+        "unique_contained_events": 223
+      },
+      "SLOWLORIS": {
+        "total_detections_in_window": 327,
+        "unique_contained_events": 323
+      },
+      "HTTP_FLOOD": {
+        "total_detections_in_window": 250,
+        "unique_contained_events": 239
+      }
+    },
+    "n_false_containment_events": 409
+  },
+  "availability": {
+    "network_availability_percent": 100.0,
+    "n_probes": 6468,
+    "n_successful": 6468
+  }
+}

@@ -17,6 +17,7 @@ sudo apt-get install -y --no-install-recommends \
     iperf3 \
     hping3 \
     netcat-openbsd \
+    iputils-ping \
     tcpdump \
     psmisc \
     python3-pip \

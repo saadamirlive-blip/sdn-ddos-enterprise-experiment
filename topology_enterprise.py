@@ -48,6 +48,20 @@ class NonBlockingOVSSwitch(OVSSwitch):
     """Custom OVS Switch that attaches ports, brings link interfaces UP, and configures OpenFlow 1.3 non-blockingly"""
     target_controller_port = 6653
 
+    @classmethod
+    def batchShutdown(cls, switches):
+        """Delete bridges independently so one ovs-vsctl lock cannot stall teardown."""
+        for switch in switches:
+            try:
+                subprocess.run(
+                    ['ovs-vsctl', '--timeout=1', '--if-exists', 'del-br', switch.name],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                    timeout=2, check=False,
+                )
+            except (subprocess.TimeoutExpired, OSError):
+                pass
+        return switches
+
     def start(self, controllers):
         """Instant non-blocking switch startup with link UP state"""
         intfs = [intf.name for intf in self.intfList() if intf.name != 'lo']
@@ -104,7 +118,7 @@ def get_controller_port():
                     return port
         except Exception:
             pass
-    return 6653  # Default OpenFlow 1.3 port
+    return None
 
 class EnterpriseTopo(Topo):
     """Enterprise Network Topology - 4 OpenFlow Switches, 13 Hosts"""

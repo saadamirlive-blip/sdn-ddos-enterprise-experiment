@@ -46,8 +46,14 @@ Refer to **[MASTER_PIPELINE.md](MASTER_PIPELINE.md)** for detailed phase-by-phas
    ```
 5. **Generate Final Results Report (.docx):**
    ```bash
-   python3 generate_results_report.py --model-metrics model_metrics.json --trials trial_01 --decisions-dir logs --out Results_Report.docx
+   python3 generate_results_report.py --model-metrics model_metrics.json --trials trial_01 trial_02 trial_03 --decisions-dir logs --baselines metrics/baselines_reference.json --reference-metrics metrics/metrics_summary.json --out Results_Report.docx
    ```
+
+The baseline comparison values in `metrics/baselines_reference.json` come from
+the supplied research-result summary. They are labeled as external reference
+values in the report and are not treated as rerun measurements. Proposed-system
+metrics remain derived from each trial's controller, ground-truth, and
+availability logs.
 
 ---
 
@@ -60,3 +66,4 @@ Refer to **[MASTER_PIPELINE.md](MASTER_PIPELINE.md)** for detailed phase-by-phas
 - `run_experiment.py`: Automated trial orchestrator with background traffic.
 - `metrics_from_logs.py`: Computes CR, FPR, FCR, mitigation response time, and availability.
 - `generate_results_report.py`: Generates publication-ready Word report with charts.
+.
