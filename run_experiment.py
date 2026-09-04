@@ -34,7 +34,8 @@ import subprocess
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from topology_enterprise import (EnterpriseTopo, NonBlockingOVSSwitch,
-                                  clean_leftover_network, get_controller_port)
+                                  clean_leftover_network, get_controller_port,
+                                  is_ovs_kernel_loaded)
 from attack_scenarios import AttackScenarios
 from availability_prober import probe_all_pairs
 
@@ -78,7 +79,11 @@ def run_trial(attacker_name, victim_name, duration, trial_dir, controller_logs_d
     net = Mininet(topo=topo, controller=None, switch=NonBlockingOVSSwitch, waitConnected=False)
     net.start()
 
+    use_netdev = not is_ovs_kernel_loaded()
     for s in ['s0', 's1', 's2', 's3']:
+        if use_netdev:
+            subprocess.run(['ovs-vsctl', '--no-wait', 'set', 'bridge', s, 'datapath_type=netdev'],
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         subprocess.run(['ovs-vsctl', '--no-wait', 'set', 'bridge', s, 'protocols=OpenFlow13'],
                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         subprocess.run(['ovs-vsctl', '--no-wait', 'set-controller', s,

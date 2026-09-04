@@ -16,6 +16,14 @@ import socket
 import subprocess
 import re
 
+def is_ovs_kernel_loaded():
+    """Detect if Open vSwitch kernel module is loaded in the current environment"""
+    try:
+        with open('/proc/modules', 'r') as f:
+            return 'openvswitch' in f.read()
+    except Exception:
+        return False
+
 def ensure_ovs_running():
     """Ensure Open vSwitch service is running before topology initialization"""
     try:
@@ -25,7 +33,6 @@ def ensure_ovs_running():
     except Exception:
         pass
 
-    print("🔧 Starting Open vSwitch daemon service...")
     try:
         subprocess.run(['service', 'openvswitch-switch', 'start'], 
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
@@ -48,6 +55,10 @@ class NonBlockingOVSSwitch(OVSSwitch):
         # Create bridge and add interfaces
         self.cmd('ovs-vsctl --no-wait --if-exists del-br', self.name)
         self.cmd('ovs-vsctl --no-wait add-br', self.name)
+        
+        # Fallback to userspace datapath if OVS kernel module is missing (e.g. Codespaces / container)
+        if not is_ovs_kernel_loaded():
+            self.cmd('ovs-vsctl --no-wait set bridge', self.name, 'datapath_type=netdev')
         
         for intf in intfs:
             self.cmd('ovs-vsctl --no-wait add-port', self.name, intf)

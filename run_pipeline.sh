@@ -5,9 +5,20 @@ echo "========================================================="
 echo " SDN Enterprise DDoS Experiment Pipeline Runner"
 echo "========================================================="
 
+# 0. Check and self-heal Python dependencies
+if ! python3 -c "import pandas, sklearn, numpy, joblib, matplotlib, docx, ryu" 2>/dev/null; then
+    echo "[Phase 0] Installing required dependencies (pandas, sklearn, ryu, etc.)..."
+    sudo apt-get update -qq
+    sudo apt-get install -y -qq python3-pip python3-pandas python3-numpy python3-sklearn python3-matplotlib \
+        iperf3 hping3 netcat-openbsd mininet openvswitch-switch
+    sudo pip3 install --upgrade pip 2>/dev/null || true
+    sudo pip3 install eventlet==0.30.2
+    sudo pip3 install ryu python-docx joblib
+fi
+
 # Clean any lingering mininet/OVS state
 sudo mn -c 2>/dev/null || true
-sudo service openvswitch-switch start || true
+sudo service openvswitch-switch start 2>/dev/null || true
 
 # Phase 1: Train model if not already trained
 if [ ! -f "model.pkl" ] || [ ! -f "scaler.pkl" ] || [ ! -f "model_metrics.json" ]; then

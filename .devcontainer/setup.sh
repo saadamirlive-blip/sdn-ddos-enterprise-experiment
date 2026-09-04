@@ -8,7 +8,7 @@ echo "========================================================="
 # Update package lists
 sudo apt-get update
 
-# Install networking tools & mininet
+# Install networking tools, mininet, and pre-built Python science packages
 sudo apt-get install -y --no-install-recommends \
     mininet \
     openvswitch-switch \
@@ -22,15 +22,19 @@ sudo apt-get install -y --no-install-recommends \
     python3-pip \
     python3-setuptools \
     python3-dev \
+    python3-pandas \
+    python3-numpy \
+    python3-sklearn \
+    python3-matplotlib \
     gcc
 
 # Install Python packages
-pip3 install --upgrade pip
-pip3 install eventlet==0.30.2
-pip3 install ryu scikit-learn numpy pandas joblib matplotlib python-docx
+sudo pip3 install --upgrade pip 2>/dev/null || true
+sudo pip3 install eventlet==0.30.2
+sudo pip3 install ryu python-docx joblib
 
 # Start Open vSwitch service
-sudo service openvswitch-switch start || true
+sudo service openvswitch-switch start 2>/dev/null || true
 
 # Pre-train the ML model
 if [ -f "train_model.py" ]; then
