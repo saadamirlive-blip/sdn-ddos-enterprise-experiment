@@ -54,10 +54,13 @@ Put all 9 files in one folder (e.g. `~/sdn-project/`) and `cd` into it.
 ## Phase 1 -- Train the model (once)
 
 ```bash
-python3 train_model.py
+python3 train_model.py --export-raw-dataset dataset/raw_training_data.csv
 ```
 
-**Produces:** `model.pkl`, `scaler.pkl`, `model_metrics.json`
+**Produces:** `dataset/raw_training_data.csv`, `model.pkl`, `scaler.pkl`, `model_metrics.json`
+
+The raw CSV is deterministic for this implementation (`numpy` seed 42). It is
+not the paper's original raw dataset, which was not supplied.
 
 Confirm all three files now exist:
 ```bash
@@ -144,6 +147,10 @@ This creates per-trial artifacts, combined CSV files, and `dataset/manifest.json
 It does not create synthetic decision or probe rows.
 
 **Produces:** `Results_Report.docx` -- every figure and table, generated from your real logs. Download this file from your VM and open it.
+
+`reproduction_conditions.json` is the machine-readable record of the exact
+conditions implemented by this repository. It records missing paper inputs
+instead of silently inventing them.
 
 If any section says "SKIPPED" in red, that phase's data is missing or incomplete for at least one trial -- go back and check that trial's files before treating the report as final.
 

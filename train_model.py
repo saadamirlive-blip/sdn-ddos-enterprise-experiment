@@ -19,6 +19,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 import os
+import argparse
 
 class DDOSDetectionModel:
     """DDoS Detection Model Trainer"""
@@ -275,6 +276,10 @@ class DDOSDetectionModel:
 
 def main():
     """Main training function"""
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--export-raw-dataset', default=None,
+                        help='Write the deterministic generated training data as CSV')
+    args = parser.parse_args()
     print("="*60)
     print("DDoS DETECTION MODEL TRAINING")
     print("="*60)
@@ -284,6 +289,11 @@ def main():
     
     # Generate dataset
     df = trainer.generate_dataset(50000)
+    if args.export_raw_dataset:
+        output_dir = os.path.dirname(os.path.abspath(args.export_raw_dataset))
+        os.makedirs(output_dir, exist_ok=True)
+        df.to_csv(args.export_raw_dataset, index=False)
+        print(f"Raw generated training dataset saved to {args.export_raw_dataset}")
     
     # Train model
     model, scaler, X_test, y_test, y_pred, y_pred_proba = trainer.train_model(df)

@@ -1,0 +1,74 @@
+{
+  "status": "reproduction_specification_not_original_raw_paper_data",
+  "honesty_note": "The paper supplied summary metrics but not its original raw traces, baseline logs, hardware details, or random seeds. This manifest records the conditions implemented here for a new reproducible run; it does not claim historical identity.",
+  "paper_reference_metrics": {
+    "containment_rate_percent": 96.8,
+    "response_time_seconds": 2.3,
+    "false_positive_rate_percent": 1.2,
+    "false_containment_rate_percent": 1.5,
+    "network_availability_percent": 98.5
+  },
+  "topology": {
+    "switches": 4,
+    "production_hosts": 13,
+    "quarantine_collectors": 3,
+    "attacker": "h4",
+    "victim": "h11",
+    "controller_protocol": "OpenFlow13"
+  },
+  "model": {
+    "training_samples": 50000,
+    "numpy_seed": 42,
+    "split_test_size": 0.3,
+    "split_seed": 42,
+    "features": ["pps", "bps", "duration", "tcp_ratio", "udp_ratio", "icmp_ratio"],
+    "random_forest": {
+      "n_estimators": 100,
+      "max_depth": 12,
+      "min_samples_split": 5,
+      "min_samples_leaf": 2,
+      "random_state": 42,
+      "class_weight": "balanced"
+    },
+    "raw_dataset_command": "python3 train_model.py --export-raw-dataset dataset/raw_training_data.csv",
+    "raw_dataset_file": "dataset/raw_training_data.csv",
+    "raw_dataset_status": "deterministically_generated_for_this_implementation"
+  },
+  "trial": {
+    "recommended_trials": 10,
+    "duration_seconds": 300,
+    "attack_types": ["SYN_FLOOD", "UDP_FLOOD", "ICMP_FLOOD", "MIXED_DDOS", "SLOWLORIS", "HTTP_FLOOD"],
+    "attack_duration_seconds": 25,
+    "cooldown_seconds": 5,
+    "availability_interval_seconds": 5,
+    "background_traffic": {
+      "clients": 1,
+      "protocol": "iperf3_udp",
+      "bitrate": "5K",
+      "burst_seconds": 2,
+      "interval_seconds": 4
+    }
+  },
+  "controller": {
+    "monitor_interval_seconds": 2.3,
+    "theta_rate_limit": 0.4,
+    "theta_quarantine": 0.6,
+    "theta_block": 0.8,
+    "rate_limit_kbps": 100,
+    "reactive_idle_timeout_seconds": 20,
+    "quarantine_flow_timeout_seconds": 120
+  },
+  "metrics": {
+    "cr": "contained attack-window decisions / all attack-window decisions",
+    "fpr": "contained legitimate decisions / all legitimate decisions",
+    "fcr": "false containment events / all containment actions",
+    "tresp": "first containment timestamp minus attack-window start, one sample per attack window",
+    "na": "successful availability probes / all availability probes"
+  },
+  "unavailable_paper_inputs": [
+    "original raw attack and legitimate traffic traces",
+    "original baseline experiment logs",
+    "paper hardware and kernel versions",
+    "paper random seeds and trial-level outputs"
+  ]
+}

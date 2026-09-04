@@ -4,6 +4,8 @@ __pycache__/
 logs/
 trial_*/
 dataset/
+!dataset/
+!dataset/raw_training_data.csv
 report_figures/
 model.pkl
 scaler.pkl

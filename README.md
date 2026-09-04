@@ -55,6 +55,23 @@ values in the report and are not treated as rerun measurements. Proposed-system
 metrics remain derived from each trial's controller, ground-truth, and
 availability logs.
 
+## Reproduction Conditions and Raw Data
+
+`reproduction_conditions.json` records the implemented topology, model seed and
+hyperparameters, attack schedule, controller thresholds, probe schedule, and
+metric formulas. The original paper raw traces were not supplied, so this is a
+new reproducible run specification rather than a claim of historical identity.
+
+Export the deterministic raw model-training data before training:
+
+```bash
+python3 train_model.py --export-raw-dataset dataset/raw_training_data.csv
+```
+
+The resulting CSV is generated from the fixed seed and the distributions in
+`train_model.py`. Trial raw data is captured in `trial_XX/decisions.jsonl`,
+`trial_XX/availability_*.jsonl`, and `trial_XX/ground_truth.json`.
+
 ---
 
 ## 📂 Core Files
